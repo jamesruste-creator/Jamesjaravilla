@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Find the Color + Database</title>
+
+<style>
+body {
+  font-family: Arial;
+  text-align: center;
+  background: #0a0a0a;
+  color: white;
+}
+
+h1 { color: #00ffcc; }
+
+#word {
+  font-size: 60px;
+  margin: 30px;
+}
+
+button {
+  padding: 10px 15px;
+  margin: 5px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+#leaderboard {
+  margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎮 Find The Color (Online)</h1>
+
+<input id="playerName" placeholder="Enter your name" />
+
+<div id="word">START</div>
+<div id="buttons"></div>
+
+<p>
+❤️ <span id="lives">3</span> |
+⏱ <span id="time">5</span> |
+🏆 <span id="level">1</span> |
+⭐ <span id="score">0</span>
+</p>
+
+<div id="msg"></div>
+
+<div id="gameOver" style="display:none;">
+  <h2>GAME OVER</h2>
+  <button onclick="restartGame()">Try Again</button>
+</div>
+
+<h2>🏆 Leaderboard</h2>
+<div id="leaderboard"></div>
+
+<!-- 🔥 FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+// 🔥 YOUR FIREBASE CONFIG (REPLACE THIS)
+var firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+};
+
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+// 🎮 GAME VARIABLES
+let colors = ["red","blue","green","yellow","purple","orange"];
+let correctColor = "";
+let score = 0;
+let level = 1;
+let lives = 3;
+let time = 5;
+let timer;
+
+// 🎲 RANDOM
+function rand(arr){
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+// 🎮 BUTTONS
+function renderButtons(){
+  let box = document.getElementById("buttons");
+  box.innerHTML = "";
+
+  colors.forEach(c=>{
+    let btn = document.createElement("button");
+    btn.innerText = c;
+    btn.style.background = c;
+    btn.onclick = ()=>check(c);
+    box.appendChild(btn);
+  });
+}
+
+// 🎮 NEW ROUND
+function newRound(){
+  clearInterval(timer);
+  time = 5;
+
+  let text = rand(colors);
+  correctColor = rand(colors);
+
+  let word = document.getElementById("word");
+  word.innerText = text.toUpperCase();
+  word.style.color = correctColor;
+
+  startTimer();
+}
+
+// ⏱ TIMER
+function startTimer(){
+  timer = setInterval(()=>{
+    time--;
+    document.getElementById("time").innerText = time;
+
+    if(time <= 0){
+      lives--;
+      if(lives <= 0) return gameOver();
+      updateUI();
+      newRound();
+    }
+  },1000);
+}
+
+// 🎮 CHECK
+function check(choice){
+  if(choice === correctColor){
+    score++;
+  } else {
+    lives--;
+  }
+
+  if(lives <= 0) return gameOver();
+
+  if(score % 5 === 0 && score !== 0){
+    level++;
+  }
+
+  updateUI();
+  setTimeout(newRound,500);
+}
+
+// 💀 GAME OVER
+function gameOver(){
+  clearInterval(timer);
+
+  document.getElementById("gameOver").style.display = "block";
+
+  saveScore();
+}
+
+// 🔁 RESTART
+function restartGame(){
+  score = 0;
+  level = 1;
+  lives = 3;
+
+  document.getElementById("gameOver").style.display = "none";
+
+  updateUI();
+  newRound();
+}
+
+// 📊 UI
+function updateUI(){
+  document.getElementById("score").innerText = score;
+  document.getElementById("level").innerText = level;
+  document.getElementById("lives").innerText = lives;
+}
+
+// 💾 SAVE TO DATABASE
+function saveScore(){
+  let name = document.getElementById("playerName").value || "Player";
+
+  db.ref("scores").push({
+    name: name,
+    score: score
+  });
+}
+
+// 📊 LOAD LEADERBOARD
+function loadLeaderboard(){
+  db.ref("scores").orderByChild("score").limitToLast(5)
+  .on("value", snapshot=>{
+    let data = snapshot.val();
+    let html = "";
+
+    for(let id in data){
+      html += `<p>${data[id].name} - ${data[id].score}</p>`;
+    }
+
+    document.getElementById("leaderboard").innerHTML = html;
+  });
+}
+
+// START
+renderButtons();
+newRound();
+loadLeaderboard();
+
+</script>
+
+</body>
+</html>
